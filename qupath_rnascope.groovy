@@ -272,7 +272,6 @@ println String.format("INFO: Cckbr+ & A2a+  : %d (%.2f%%)", cka2, 100.0*cka2/tot
 println "INFO: --- Triple positive ---"
 println String.format("INFO: Drd1+ & Cckbr+ & A2a+ : %d (%.2f%%)", triple, 100.0*triple/tot)
 println "INFO: =============================="
-
 // =====================================================
 // OPTIONAL: Assign a combined class so QuPath can count groups normally
 // This will overwrite the temporary A2a+/A2a- coloring.
@@ -285,6 +284,7 @@ getDetectionObjects().each { cell ->
     String cname = "Drd1" + (d ? "+" : "-") + ":Cckbr" + (c ? "+" : "-") + ":A2a" + (a ? "+" : "-")
     cell.setPathClass(getPathClass(cname))
 }
+
 fireHierarchyUpdate()
 getCurrentViewer().repaint()
 println "INFO: Assigned combined classes Drd1:Cckbr:A2a for all detections."
