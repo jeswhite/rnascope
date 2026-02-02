@@ -32,6 +32,15 @@ if (server == null) {
     return
 }
 
+// --- SAFETY: clear old detections so runs don't mix ---
+int existing = getDetectionObjects().size()
+if (existing > 0) {
+    println "INFO: Clearing existing detections: " + existing
+    removeObjects(getDetectionObjects(), true)
+    fireHierarchyUpdate()
+    getCurrentViewer().repaint()
+}
+
 def fullX = 0
 def fullY = 0
 def fullWidth = server.getWidth()
