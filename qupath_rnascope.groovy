@@ -15,7 +15,7 @@ def a2aChannel   = 'A2a'
 def downsample = 8.0
 def requestedPixelSize = 0.5
 def minArea = 10.0
-def maxArea = 400.0
+def maxArea = 300.0
 
 // Channel stack indices (ImageJ stack is 1-based)
 int IDX_DAPI  = 1
@@ -86,8 +86,8 @@ while (true) {
             requestedPixelSizeMicrons : requestedPixelSize,
             backgroundRadiusMicrons   : 8.0,
             backgroundByReconstruction: true,
-            medianRadiusMicrons       : 0.0,
-            sigmaMicrons              : 1.5,
+            medianRadiusMicrons       : 2.0,
+            sigmaMicrons              : 3.0,
             minAreaMicrons            : minArea,
             maxAreaMicrons            : maxArea,
             threshold                 : thrDapi,
@@ -261,6 +261,7 @@ def triple = getDetectionObjects().count {
 }
 
 println "INFO: =============================="
+ 
 println String.format("INFO: TOTAL cells: %d", tot)
 println String.format("INFO: Drd1+  : %d (%.2f%%)", d1, 100.0*d1/tot)
 println String.format("INFO: Cckbr+ : %d (%.2f%%)", ck, 100.0*ck/tot)
@@ -272,6 +273,16 @@ println String.format("INFO: Cckbr+ & A2a+  : %d (%.2f%%)", cka2, 100.0*cka2/tot
 println "INFO: --- Triple positive ---"
 println String.format("INFO: Drd1+ & Cckbr+ & A2a+ : %d (%.2f%%)", triple, 100.0*triple/tot)
 println "INFO: =============================="
+
+def pct = { num, den -> den > 0 ? (100.0 * num / den) : Double.NaN }
+
+println "INFO: --- Conditional percentages (within-population) ---"
+println String.format("INFO: Cckbr+ among Drd1+ = %d/%d (%.2f%%)", d1ck, d1, pct(d1ck, d1))
+println String.format("INFO: A2a+ among Drd1+   = %d/%d (%.2f%%)", d1a2, d1, pct(d1a2, d1))
+println String.format("INFO: Cckbr+ among A2a+  = %d/%d (%.2f%%)", cka2, a2, pct(cka2, a2))
+println String.format("INFO: A2a+ among Cckbr+  = %d/%d (%.2f%%)", cka2, ck, pct(cka2, ck))
+println String.format("INFO: Drd1+ among Cckbr+ = %d/%d (%.2f%%)", d1ck, ck, pct(d1ck, ck))
+println String.format("INFO: Triple among (Drd1 & Cckbr)+ = %d/%d (%.2f%%)", triple, d1ck, pct(triple, d1ck))
 
 // =====================================================
 // OPTIONAL: Assign a combined class so QuPath can count groups normally
@@ -287,5 +298,35 @@ getDetectionObjects().each { cell ->
 }
 fireHierarchyUpdate()
 getCurrentViewer().repaint()
+// =====================================================
+// EXTRA: Full 8-bin breakdown (D1 +/-  x  Cckbr +/-  x  A2a +/-)
+// =====================================================
+def bins = [
+    "Drd1+:Cckbr+:A2a+": 0,
+    "Drd1+:Cckbr+:A2a-": 0,
+    "Drd1+:Cckbr-:A2a+": 0,
+    "Drd1+:Cckbr-:A2a-": 0,
+    "Drd1-:Cckbr+:A2a+": 0,
+    "Drd1-:Cckbr+:A2a-": 0,
+    "Drd1-:Cckbr-:A2a+": 0,
+    "Drd1-:Cckbr-:A2a-": 0
+]
+
+getDetectionObjects().each { cell ->
+    boolean d = cell.getMeasurementList().getMeasurementValue("Drd1_pos") == 1.0
+    boolean c = cell.getMeasurementList().getMeasurementValue("Cckbr_pos") == 1.0
+    boolean a = cell.getMeasurementList().getMeasurementValue("A2a_pos") == 1.0
+    String key = "Drd1" + (d?"+":"-") + ":Cckbr" + (c?"+":"-") + ":A2a" + (a?"+":"-")
+    bins[key] = bins[key] + 1
+}
+
+println "INFO: --- Full 3-marker breakdown (8 bins; % of TOTAL) ---"
+bins.each { k, v ->
+    println String.format("INFO: %s : %d (%.2f%%)", k, v, 100.0 * v / tot)
+}
+
+// QC check: make sure bins sum to total
+int sumBins = bins.values().sum() as int
+println String.format("INFO: QC: sum(8 bins) = %d; totalCells = %d; delta = %d", sumBins, tot, (sumBins - tot))
 println "INFO: Assigned combined classes Drd1:Cckbr:A2a for all detections."
 
