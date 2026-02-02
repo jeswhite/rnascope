@@ -12,7 +12,6 @@ def drd1Channel  = 'Drd1'
 def cckbrChannel = 'Cckbr'
 def a2aChannel   = 'A2a'
 
-
 def downsample = 8.0
 def requestedPixelSize = 0.5
 def minArea = 10.0
@@ -273,6 +272,7 @@ println String.format("INFO: Cckbr+ & A2a+  : %d (%.2f%%)", cka2, 100.0*cka2/tot
 println "INFO: --- Triple positive ---"
 println String.format("INFO: Drd1+ & Cckbr+ & A2a+ : %d (%.2f%%)", triple, 100.0*triple/tot)
 println "INFO: =============================="
+
 // =====================================================
 // OPTIONAL: Assign a combined class so QuPath can count groups normally
 // This will overwrite the temporary A2a+/A2a- coloring.
@@ -285,87 +285,7 @@ getDetectionObjects().each { cell ->
     String cname = "Drd1" + (d ? "+" : "-") + ":Cckbr" + (c ? "+" : "-") + ":A2a" + (a ? "+" : "-")
     cell.setPathClass(getPathClass(cname))
 }
-
 fireHierarchyUpdate()
 getCurrentViewer().repaint()
 println "INFO: Assigned combined classes Drd1:Cckbr:A2a for all detections."
-// --- EXPORT + 9-way summary ---
-def dets = getDetectionObjects()
-int total_cells = dets.size()
-
-int c1 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 1.0
-}
-int c2 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 0.0
-}
-int c3 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 1.0
-}
-int c4 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 0.0
-}
-int c5 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 1.0
-}
-int c6 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 1.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 0.0
-}
-int c7 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 1.0
-}
-int c8 = dets.count {
-    it.getMeasurementList().getMeasurementValue("Drd1_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("Cckbr_pos") == 0.0 &&
-    it.getMeasurementList().getMeasurementValue("A2a_pos") == 0.0
-}
-
-int sum_of_8 = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8
-
-println String.format("SUMMARY: total_cells: %d", total_cells)
-println String.format("SUMMARY: Drd1+:Cckbr+:A2a+ : %d", c1)
-println String.format("SUMMARY: Drd1+:Cckbr+:A2a- : %d", c2)
-println String.format("SUMMARY: Drd1+:Cckbr-:A2a+ : %d", c3)
-println String.format("SUMMARY: Drd1+:Cckbr-:A2a- : %d", c4)
-println String.format("SUMMARY: Drd1-:Cckbr+:A2a+ : %d", c5)
-println String.format("SUMMARY: Drd1-:Cckbr+:A2a- : %d", c6)
-println String.format("SUMMARY: Drd1-:Cckbr-:A2a+ : %d", c7)
-println String.format("SUMMARY: Drd1-:Cckbr-:A2a- : %d", c8)
-
-if (sum_of_8 != total_cells) {
-    println String.format("WARNING: Sum of 8 combinations (%d) != total_cells (%d)", sum_of_8, total_cells)
-}
-
-// Write 1-row summary CSV to project directory
-def baseDir = getProject().getBaseDirectory()
-def imageName = getProjectEntry().getImageName()
-def summaryFile = new File(baseDir, imageName + "_summary.csv")
-def header = "image,total_cells,Drd1p_Cckbrp_A2ap,Drd1p_Cckbrp_A2an,Drd1p_Cckbrn_A2ap,Drd1p_Cckbrn_A2an,Drd1n_Cckbrp_A2ap,Drd1n_Cckbrp_A2an,Drd1n_Cckbrn_A2ap,Drd1n_Cckbrn_A2an"
-def row = String.format("%s,%d,%d,%d,%d,%d,%d,%d,%d,%d", imageName, total_cells, c1, c2, c3, c4, c5, c6, c7, c8)
-summaryFile.withWriter('UTF-8') { writer ->
-    writer.write(header)
-    writer.newLine()
-    writer.write(row)
-    writer.newLine()
-}
-println "INFO: Wrote summary CSV to " + summaryFile.getAbsolutePath()
-
-// Export per-cell measurements table
-def cellsFile = new File(baseDir, imageName + "_cells.csv")
-QPEx.exportObjectsToCSV(cellsFile.getAbsolutePath(), getDetectionObjects())
-println "INFO: Wrote per-cell CSV to " + cellsFile.getAbsolutePath()
 
