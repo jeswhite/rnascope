@@ -40,6 +40,47 @@ if (existing > 0) {
     fireHierarchyUpdate()
     getCurrentViewer().repaint()
 }
+// =====================================================
+// QC helper: summarizes the per-cell measurement distribution + threshold placement
+// =====================================================
+def qcCellDistribution = { String label, String measName, double thr ->
+
+    def cells = getDetectionObjects()
+    int nTotal = cells.size()
+
+    def vals = cells.collect { it.getMeasurementList().getMeasurementValue(measName) }
+    def good = vals.findAll { !Double.isNaN(it) }
+    int nValid = good.size()
+    int nNaN = nTotal - nValid
+
+    if (nValid == 0) {
+        println "ERROR: ${label} QC: No valid values for measurement '${measName}'. Check measurement name / makeMeasurements / channel naming."
+        return
+    }
+
+    good.sort()
+
+    def percentile = { double q ->
+        int idx = (int)Math.round(q * (nValid - 1))
+        idx = Math.max(0, Math.min(nValid - 1, idx))
+        return good[idx]
+    }
+
+    def countAbove = good.count { it >= thr }
+    double fracAbove = 100.0 * countAbove / nValid
+
+    // Separate into pos/neg *by threshold* and summarize medians
+    def pos = good.findAll { it >= thr }
+    def neg = good.findAll { it < thr }
+    pos.sort(); neg.sort()
+    def medianOf = { list -> list.isEmpty() ? Double.NaN : list[(int)(list.size()/2)] }
+
+    println "INFO: ${label} QC (${measName}): total=${nTotal} valid=${nValid} NaNs=${nNaN}"
+    println String.format("INFO: %s dist: min=%.3f p10=%.3f med=%.3f p90=%.3f p99=%.3f max=%.3f",
+            label, percentile(0.0), percentile(0.10), percentile(0.50), percentile(0.90), percentile(0.99), percentile(1.0))
+    println String.format("INFO: %s thr=%.3f => %.2f%% of VALID cells >= thr | med(pos)=%.3f med(neg)=%.3f",
+            label, thr, fracAbove, medianOf(pos), medianOf(neg))
+}
 
 def fullX = 0
 def fullY = 0
@@ -154,6 +195,7 @@ while (true) {
     if (mult == null) return
     double thr = otsuDrd1 * mult
     println "INFO: Effective Drd1 threshold: ${thr}"
+    qcCellDistribution("Drd1", "Nucleus: Drd1 mean", thr)
 
     getDetectionObjects().each { cell ->
         double mean = cell.getMeasurementList().getMeasurementValue("Nucleus: Drd1 mean")
@@ -187,6 +229,7 @@ while (true) {
     if (mult == null) return
     double thr = otsuCckbr * mult
     println "INFO: Effective Cckbr threshold: ${thr}"
+    qcCellDistribution("Cckbr", "Nucleus: Cckbr mean", thr)
 
     getDetectionObjects().each { cell ->
         double mean = cell.getMeasurementList().getMeasurementValue("Nucleus: Cckbr mean")
@@ -219,7 +262,7 @@ while (true) {
     if (mult == null) return
     double thr = otsuA2a * mult
     println "INFO: Effective A2a threshold: ${thr}"
-
+    qcCellDistribution("A2a", "Nucleus: A2a mean", thr)
     getDetectionObjects().each { cell ->
         double mean = cell.getMeasurementList().getMeasurementValue("Nucleus: A2a mean")
         boolean isPos = (mean >= thr)
@@ -247,6 +290,10 @@ while (true) {
 // FINAL: Print single-marker + pairwise + triple counts
 // =====================================================
 int tot = totalCells()
+if (tot == 0) {
+    println "ERROR: No cells detected. Exiting."
+    return
+}
 int d1  = countPos("Drd1_pos")
 int ck  = countPos("Cckbr_pos")
 int a2  = countPos("A2a_pos")
